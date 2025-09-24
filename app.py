@@ -128,7 +128,7 @@ TEMPLATE = """
 </head>
 <body>
     <div class="container">
-        <h1>📒 My Notes</h1>
+        <h1>📒 MY SIMPLE NOTES </h1>
         <form method="POST" action="/add">
             <input type="text" name="note" placeholder="Write a note..." required>
             <button type="submit">Add</button>
