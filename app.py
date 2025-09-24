@@ -1,4 +1,4 @@
-from flask import Flask, request, redirect, render_template_string
+from flask import Flask, request, redirect, render_template_string, jsonify
 
 app = Flask(__name__)
 
@@ -37,6 +37,12 @@ def add_note():
     if note:
         notes.append(note)
     return redirect("/")
-    
+
+# ✅ Add a health-check route (for tests and CI/CD)
+@app.route("/health")
+def health():
+    return jsonify({"status": "ok"}), 200
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    # ✅ Bind to 0.0.0.0 so it works inside Docker/EC2
+    app.run(host="0.0.0.0", port=5000, debug=True)
