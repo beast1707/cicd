@@ -1,0 +1,63 @@
+pipeline {
+  agent any
+  environment {
+    IMAGE_NAME = "ayushd1707/ci-cd-demo"   // 🔁 Replace with your Docker Hub username
+    REMOTE_USER = "ubuntu"                            // Default EC2 user
+    REMOTE_HOST = "13.202.246.54"                // 🔁 Replace with your EC2 public IP
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Install & Test') {
+      steps {
+        sh '''
+          python3 -m venv venv
+          . venv/bin/activate
+          pip install -r requirements.txt
+          pytest -q
+        '''
+      }
+    }
+
+    stage('Build & Push Docker') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+          sh '''
+            docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} .
+            echo $PASS | docker login -u $USER --password-stdin
+            docker push ${IMAGE_NAME}:${BUILD_NUMBER}
+          '''
+        }
+      }
+    }
+
+    stage('Deploy to EC2') {
+      steps {
+        withCredentials([sshUserPrivateKey(credentialsId: 'deploy-ssh', keyFileVariable: 'KEY')]) {
+          sh '''
+            ssh -o StrictHostKeyChecking=no -i $KEY ${REMOTE_USER}@${REMOTE_HOST} "
+              docker pull ${IMAGE_NAME}:${BUILD_NUMBER} &&
+              docker stop ccd-app || true &&
+              docker rm ccd-app || true &&
+              docker run -d --name ccd-app -p 80:5000 ${IMAGE_NAME}:${BUILD_NUMBER}
+            "
+          '''
+        }
+      }
+    }
+  }
+
+  post {
+    success {
+      echo "✅ Deployment complete: ${IMAGE_NAME}:${BUILD_NUMBER} is now live!"
+    }
+    failure {
+      echo "❌ Deployment failed. Check the logs."
+    }
+  }
+}
